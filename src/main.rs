@@ -9,17 +9,17 @@ struct Cli {
     output_path: String,
 }
 
-struct ExprNode {
+struct Node {
     name: String,
-    args: Vec<ExprArg>,
+    args: Vec<Arg>,
 }
 
-struct ExprArg {
+struct Arg {
     label: String,
     r#type: String,
 }
 
-fn parse_definition(definition: &str) -> ExprNode {
+fn parse_definition(definition: &str) -> Node {
     let parts = definition.split(":").collect::<Vec<&str>>();
     let name = parts[0].trim().to_string();
     let args = parts[1].split(",")
@@ -28,11 +28,11 @@ fn parse_definition(definition: &str) -> ExprNode {
             let r#type = arg[0].trim().to_string();
             let label = arg[1].to_ascii_lowercase();
 
-            ExprArg { label, r#type }
+            Arg { label, r#type }
         })
-        .collect::<Vec<ExprArg>>();
+        .collect::<Vec<Arg>>();
 
-    ExprNode {
+    Node {
         name,
         args,
     }
@@ -51,6 +51,21 @@ fn create_expr_enum(definitions: Vec<&str>) -> String {
     expr_enum.push('}');
 
     expr_enum
+}
+
+fn create_stmt_enum(definitions: Vec<&str>) -> String {
+    let mut stmt_enum = "pub enum Stmt {\n".to_string();
+
+    for definition in definitions {
+        let definition = parse_definition(definition);
+        let struct_name = format!("{}Stmt", definition.name);
+
+        stmt_enum.push_str(&format!("    {}({}),\n", definition.name, struct_name));
+    }
+
+    stmt_enum.push('}');
+
+    stmt_enum
 }
 
 fn create_expr_structs(definitions: Vec<&str>) -> String {
@@ -76,9 +91,27 @@ fn create_expr_structs(definitions: Vec<&str>) -> String {
     expr_structs
 }
 
+fn create_stmt_structs(definitions: Vec<&str>) -> String {
+    let mut stmt_structs = String::new();
+
+    for definition in definitions {
+        let definition = parse_definition(definition);
+        let struct_name = format!("{}Stmt", definition.name);
+
+        stmt_structs.push_str(&format!("pub struct {} {{\n", struct_name));
+        for arg in definition.args {
+            let r#type = arg.r#type.to_string();
+            stmt_structs.push_str(&format!("    pub {}: {},\n", arg.label, r#type));
+        }
+        stmt_structs.push_str("}\n\n");
+    }
+
+    stmt_structs
+}
+
 fn create_expr_impl(definitions: Vec<&str>) -> String {
     let mut expr_impl = "impl Expr {\n".to_string();
-    expr_impl.push_str("    pub fn accept<T>(&self, visitor: &dyn Visitor<T>) -> T {\n");
+    expr_impl.push_str("    pub fn accept<T>(&self, visitor: &dyn ExprVisitor<T>) -> T {\n");
     expr_impl.push_str("        match self {\n");
 
     for definition in definitions {
@@ -94,12 +127,30 @@ fn create_expr_impl(definitions: Vec<&str>) -> String {
     expr_impl
 }
 
-fn create_visitor_trait(definitions: Vec<&str>) -> String {
-    let mut r#trait = "pub trait Visitor<T> {\n".to_string();
+fn create_stmt_impl(definitions: Vec<&str>) -> String {
+    let mut expr_impl = "impl Stmt {\n".to_string();
+    expr_impl.push_str("    pub fn accept<T>(&self, visitor: &dyn StmtVisitor<T>) -> T {\n");
+    expr_impl.push_str("        match self {\n");
+
+    for definition in definitions {
+        let definition = parse_definition(definition);
+        let label = definition.name.to_ascii_lowercase();
+
+        expr_impl.push_str(&format!("            Stmt::{}(expr) => visitor.visit_{}(expr),\n", definition.name, label));
+    }
+    expr_impl.push_str("        }\n");
+    expr_impl.push_str("    }\n");
+    expr_impl.push('}');
+
+    expr_impl
+}
+
+fn create_visitor_trait(base: &str, definitions: Vec<&str>) -> String {
+    let mut r#trait = format!("pub trait {}Visitor<T> {{\n", base).to_string();
 
     for definition in definitions {
         let r#type = definition.split(":").collect::<Vec<&str>>()[0].trim();
-        r#trait.push_str(&format!("    fn visit_{}(&self, {}: &{}Expr) -> T;\n", r#type.to_ascii_lowercase(), r#type.to_ascii_lowercase(), r#type));
+        r#trait.push_str(&format!("    fn visit_{}(&self, {}: &{}{}) -> T;\n", r#type.to_ascii_lowercase(), r#type.to_ascii_lowercase(), r#type, base));
     }
 
     r#trait.push('}');
@@ -108,11 +159,15 @@ fn create_visitor_trait(definitions: Vec<&str>) -> String {
 }
 
 fn generate_ast(output: &str) -> Result<()> {
-    let definitions = [
+    let expr_definitions = [
         "Binary   : Expr left, Token operator, Expr right",
         "Grouping : Expr expression",
         "Literal  : LiteralValue value",
         "Unary    : Token operator, Expr right",
+    ];
+    let stmt_definitions = [
+        "Expression : Expr expression",
+        "Print      : Expr expression",
     ];
 
     let mut ast = String::new();
@@ -120,12 +175,23 @@ fn generate_ast(output: &str) -> Result<()> {
     ast.push_str("use crate::scanner::Token;\n");
     ast.push_str("use crate::scanner::LiteralValue;\n");
     ast.push('\n');
-    ast.push_str(&create_expr_structs(definitions.to_vec()));
-    ast.push_str(&create_expr_enum(definitions.to_vec()));
+
+    // expressions
+    ast.push_str(&create_expr_structs(expr_definitions.to_vec()));
+    ast.push_str(&create_expr_enum(expr_definitions.to_vec()));
     ast.push_str("\n\n");
-    ast.push_str(&create_visitor_trait(definitions.to_vec()));
+    ast.push_str(&create_visitor_trait("Expr", expr_definitions.to_vec()));
     ast.push_str("\n\n");
-    ast.push_str(&create_expr_impl(definitions.to_vec()));
+    ast.push_str(&create_expr_impl(expr_definitions.to_vec()));
+    ast.push_str("\n\n");
+
+    // statements
+    ast.push_str(&create_stmt_structs(stmt_definitions.to_vec()));
+    ast.push_str(&create_stmt_enum(stmt_definitions.to_vec()));
+    ast.push_str("\n\n");
+    ast.push_str(&create_visitor_trait("Stmt", stmt_definitions.to_vec()));
+    ast.push_str("\n\n");
+    ast.push_str(&create_stmt_impl(stmt_definitions.to_vec()));
 
     std::fs::write(output, ast)?;
 
