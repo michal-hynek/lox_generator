@@ -164,10 +164,12 @@ fn generate_ast(output: &str) -> Result<()> {
         "Grouping : Expr expression",
         "Literal  : LiteralValue value",
         "Unary    : Token operator, Expr right",
+        "Var      : Token name",
     ];
     let stmt_definitions = [
         "Expression : Expr expression",
         "Print      : Expr expression",
+        "Var        : Token name, Expr initializer",
     ];
 
     let mut ast = String::new();

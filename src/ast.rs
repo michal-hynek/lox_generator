@@ -20,11 +20,16 @@ pub struct UnaryExpr {
     pub right: Box<Expr>,
 }
 
+pub struct VarExpr {
+    pub name: Token,
+}
+
 pub enum Expr {
     Binary(BinaryExpr),
     Grouping(GroupingExpr),
     Literal(LiteralExpr),
     Unary(UnaryExpr),
+    Var(VarExpr),
 }
 
 pub trait ExprVisitor<T> {
@@ -32,6 +37,7 @@ pub trait ExprVisitor<T> {
     fn visit_grouping(&self, grouping: &GroupingExpr) -> T;
     fn visit_literal(&self, literal: &LiteralExpr) -> T;
     fn visit_unary(&self, unary: &UnaryExpr) -> T;
+    fn visit_var(&self, var: &VarExpr) -> T;
 }
 
 impl Expr {
@@ -41,6 +47,7 @@ impl Expr {
             Expr::Grouping(expr) => visitor.visit_grouping(expr),
             Expr::Literal(expr) => visitor.visit_literal(expr),
             Expr::Unary(expr) => visitor.visit_unary(expr),
+            Expr::Var(expr) => visitor.visit_var(expr),
         }
     }
 }
@@ -53,14 +60,21 @@ pub struct PrintStmt {
     pub expression: Expr,
 }
 
+pub struct VarStmt {
+    pub name: Token,
+    pub initializer: Expr,
+}
+
 pub enum Stmt {
     Expression(ExpressionStmt),
     Print(PrintStmt),
+    Var(VarStmt),
 }
 
 pub trait StmtVisitor<T> {
     fn visit_expression(&self, expression: &ExpressionStmt) -> T;
     fn visit_print(&self, print: &PrintStmt) -> T;
+    fn visit_var(&self, var: &VarStmt) -> T;
 }
 
 impl Stmt {
@@ -68,6 +82,7 @@ impl Stmt {
         match self {
             Stmt::Expression(expr) => visitor.visit_expression(expr),
             Stmt::Print(expr) => visitor.visit_print(expr),
+            Stmt::Var(expr) => visitor.visit_var(expr),
         }
     }
 }
