@@ -169,7 +169,7 @@ fn generate_ast(output: &str) -> Result<()> {
     let stmt_definitions = [
         "Expression : Expr expression",
         "Print      : Expr expression",
-        "Var        : Token name, Expr initializer",
+        "Var        : Token name, Option<Expr> initializer",
     ];
 
     let mut ast = String::new();

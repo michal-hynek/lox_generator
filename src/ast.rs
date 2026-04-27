@@ -62,7 +62,7 @@ pub struct PrintStmt {
 
 pub struct VarStmt {
     pub name: Token,
-    pub initializer: Expr,
+    pub initializer: Option<Expr>,
 }
 
 pub enum Stmt {
