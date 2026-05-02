@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use anyhow::Result;
 use clap::Parser;
 
@@ -129,7 +131,7 @@ fn create_expr_impl(definitions: Vec<&str>) -> String {
 
 fn create_stmt_impl(definitions: Vec<&str>) -> String {
     let mut expr_impl = "impl Stmt {\n".to_string();
-    expr_impl.push_str("    pub fn accept<T>(&self, visitor: &dyn StmtVisitor<T>) -> T {\n");
+    expr_impl.push_str("    pub fn accept<T>(&self, visitor: &mut dyn StmtVisitor<T>) -> T {\n");
     expr_impl.push_str("        match self {\n");
 
     for definition in definitions {
@@ -145,12 +147,17 @@ fn create_stmt_impl(definitions: Vec<&str>) -> String {
     expr_impl
 }
 
-fn create_visitor_trait(base: &str, definitions: Vec<&str>) -> String {
+fn create_visitor_trait(base: &str, definitions: Vec<&str>, mutables: HashSet<String>) -> String {
     let mut r#trait = format!("pub trait {}Visitor<T> {{\n", base).to_string();
 
     for definition in definitions {
         let r#type = definition.split(":").collect::<Vec<&str>>()[0].trim();
-        r#trait.push_str(&format!("    fn visit_{}(&self, {}: &{}{}) -> T;\n", r#type.to_ascii_lowercase(), r#type.to_ascii_lowercase(), r#type, base));
+        let self_arg = if mutables.contains(&r#type.to_ascii_lowercase()) {
+            "&mut self"
+        } else {
+            "&self"
+        };
+        r#trait.push_str(&format!("    fn visit_{}({}, {}: &{}{}) -> T;\n", r#type.to_ascii_lowercase(), self_arg, r#type.to_ascii_lowercase(), r#type, base));
     }
 
     r#trait.push('}');
@@ -182,7 +189,7 @@ fn generate_ast(output: &str) -> Result<()> {
     ast.push_str(&create_expr_structs(expr_definitions.to_vec()));
     ast.push_str(&create_expr_enum(expr_definitions.to_vec()));
     ast.push_str("\n\n");
-    ast.push_str(&create_visitor_trait("Expr", expr_definitions.to_vec()));
+    ast.push_str(&create_visitor_trait("Expr", expr_definitions.to_vec(), HashSet::new()));
     ast.push_str("\n\n");
     ast.push_str(&create_expr_impl(expr_definitions.to_vec()));
     ast.push_str("\n\n");
@@ -191,7 +198,7 @@ fn generate_ast(output: &str) -> Result<()> {
     ast.push_str(&create_stmt_structs(stmt_definitions.to_vec()));
     ast.push_str(&create_stmt_enum(stmt_definitions.to_vec()));
     ast.push_str("\n\n");
-    ast.push_str(&create_visitor_trait("Stmt", stmt_definitions.to_vec()));
+    ast.push_str(&create_visitor_trait("Stmt", stmt_definitions.to_vec(), HashSet::from(["var".to_string()])));
     ast.push_str("\n\n");
     ast.push_str(&create_stmt_impl(stmt_definitions.to_vec()));
 

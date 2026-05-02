@@ -74,11 +74,11 @@ pub enum Stmt {
 pub trait StmtVisitor<T> {
     fn visit_expression(&self, expression: &ExpressionStmt) -> T;
     fn visit_print(&self, print: &PrintStmt) -> T;
-    fn visit_var(&self, var: &VarStmt) -> T;
+    fn visit_var(&mut self, var: &VarStmt) -> T;
 }
 
 impl Stmt {
-    pub fn accept<T>(&self, visitor: &dyn StmtVisitor<T>) -> T {
+    pub fn accept<T>(&self, visitor: &mut dyn StmtVisitor<T>) -> T {
         match self {
             Stmt::Expression(expr) => visitor.visit_expression(expr),
             Stmt::Print(expr) => visitor.visit_print(expr),
