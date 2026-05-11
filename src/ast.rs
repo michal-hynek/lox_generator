@@ -1,6 +1,11 @@
 use crate::scanner::Token;
 use crate::scanner::LiteralValue;
 
+pub struct AssignExpr {
+    pub name: Token,
+    pub value: Box<Expr>,
+}
+
 pub struct BinaryExpr {
     pub left: Box<Expr>,
     pub operator: Token,
@@ -25,6 +30,7 @@ pub struct VarExpr {
 }
 
 pub enum Expr {
+    Assign(AssignExpr),
     Binary(BinaryExpr),
     Grouping(GroupingExpr),
     Literal(LiteralExpr),
@@ -33,6 +39,7 @@ pub enum Expr {
 }
 
 pub trait ExprVisitor<T> {
+    fn visit_assign(&self, assign: &AssignExpr) -> T;
     fn visit_binary(&self, binary: &BinaryExpr) -> T;
     fn visit_grouping(&self, grouping: &GroupingExpr) -> T;
     fn visit_literal(&self, literal: &LiteralExpr) -> T;
@@ -43,6 +50,7 @@ pub trait ExprVisitor<T> {
 impl Expr {
     pub fn accept<T>(&self, visitor: &dyn ExprVisitor<T>) -> T {
         match self {
+            Expr::Assign(expr) => visitor.visit_assign(expr),
             Expr::Binary(expr) => visitor.visit_binary(expr),
             Expr::Grouping(expr) => visitor.visit_grouping(expr),
             Expr::Literal(expr) => visitor.visit_literal(expr),

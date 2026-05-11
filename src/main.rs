@@ -167,6 +167,7 @@ fn create_visitor_trait(base: &str, definitions: Vec<&str>, mutables: HashSet<St
 
 fn generate_ast(output: &str) -> Result<()> {
     let expr_definitions = [
+        "Assign   : Token name, Expr value",
         "Binary   : Expr left, Token operator, Expr right",
         "Grouping : Expr expression",
         "Literal  : LiteralValue value",
